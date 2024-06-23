@@ -1,7 +1,7 @@
 const settings = {
-    width: 7500,
-    height: 3600,
-    resolution: 15,
+    width: NaN,
+    height: NaN,
+    resolution: 5,
 };
 
 const cellType = {
@@ -14,14 +14,14 @@ const cellType = {
 const cellColor = {
     [cellType.dead]: '#270049',
     [cellType.normal]: '#5aff00',
-    [cellType.fungi]: 'red',
+    [cellType.fungi]: '#9b00df',
     [cellType.whiteGlobule]: 'white',
 }
 
 const cellProb = {
-    [cellType.whiteGlobule]: 0.1,
-    [cellType.fungi]: 0.15,
-    [cellType.normal]: 0.3,
+    [cellType.whiteGlobule]: 0.2,
+    [cellType.fungi]: 0.2,
+    [cellType.normal]: 0.2,
     [cellType.dead]: 0.4,
 }
 
@@ -59,6 +59,52 @@ function drawGrid(ctx, grid, cols, rows) {
     }
 }
 
+function applyRules(currentCell, neighbors) {
+
+    // normal born
+    if (currentCell === cellType.dead && neighbors[cellType.normal] === 3) {
+        return cellType.normal;
+    }
+
+    // fungi born
+    if (currentCell === cellType.dead && neighbors[cellType.fungi] === 3) {
+        return cellType.fungi;
+    }
+
+    // normal death
+    if (currentCell === cellType.normal && (neighbors[cellType.normal] < 2 || neighbors[cellType.normal] > 3)) {
+        return cellType.dead;
+    }
+
+    // fungi death
+    if (currentCell === cellType.fungi && (neighbors[cellType.fungi] < 2 || neighbors[cellType.fungi] > 3)) {
+        return cellType.dead;
+    }
+
+    // normal death by fungi neighbors
+    if (currentCell === cellType.normal && neighbors[cellType.fungi] > 2) {
+        return cellType.dead;
+    }
+
+    // fungi death by white globule neighbors
+    if (currentCell === cellType.fungi && neighbors[cellType.whiteGlobule] > 2) {
+        return cellType.dead;
+    }
+
+    // white globule born
+    if (currentCell === cellType.dead && neighbors[cellType.whiteGlobule] === 3) {
+        return cellType.whiteGlobule;
+    }
+
+    // white globule death
+    if (currentCell === cellType.whiteGlobule && (neighbors[cellType.whiteGlobule] < 2 || neighbors[cellType.whiteGlobule] > 3)) {
+        return cellType.dead;
+    }
+
+    // neutral
+    return currentCell;
+}
+
 function computeNextGeneration(currentGeneration, cols, rows) {
 
     const copy = currentGeneration.map((row) => [...row]);
@@ -69,6 +115,8 @@ function computeNextGeneration(currentGeneration, cols, rows) {
             const neighbors = {
                 [cellType.normal]: 0,
                 [cellType.fungi]: 0,
+                [cellType.whiteGlobule]: 0,
+                [cellType.dead]: 0,
             };
 
             for (let i = -1; i < 2; i++) {
@@ -88,47 +136,11 @@ function computeNextGeneration(currentGeneration, cols, rows) {
                 }
             }
 
-            // apply rules
-
-            if (currentCell === cellType.dead && neighbors[cellType.normal] === 3) {
-                copy[col][row] = cellType.normal;
-            }
-
-            if (currentCell === cellType.dead && neighbors[cellType.fungi] === 3) {
-                copy[col][row] = cellType.fungi;
-            }
-
-            if (currentCell === cellType.normal && (neighbors[cellType.normal] < 2 || neighbors[cellType.normal] > 3)) {
-                copy[col][row] = cellType.dead;
-            }
-
-            if (currentCell === cellType.fungi && (neighbors[cellType.fungi] < 2 || neighbors[cellType.fungi] > 3)) {
-                copy[col][row] = cellType.dead;
-            }
-
-            if (currentCell === cellType.normal && neighbors[cellType.fungi] > 2) {
-                copy[col][row] = cellType.dead;
-            }
-
-            if (currentCell === cellType.fungi && neighbors[cellType.whiteGlobule] > 1) {
-                copy[col][row] = cellType.dead;
-            }
-
-            if (currentCell === cellType.dead && neighbors[cellType.whiteGlobule] === 3) {
-                copy[col][row] = cellType.whiteGlobule;
-            }
-
-            if (currentCell === cellType.whiteGlobule && (neighbors[cellType.whiteGlobule] < 2 || neighbors[cellType.whiteGlobule] > 3)) {
-                copy[col][row] = cellType.dead;
-            }
+            copy[col][row] = applyRules(currentCell, neighbors);
         }
     }
 
     return copy;
-}
-
-function delay(ms) {
-    return new Promise(res => setTimeout(res, ms));
 }
 
 async function loop(ctx, currentGeneration, cols, rows) {
@@ -137,8 +149,6 @@ async function loop(ctx, currentGeneration, cols, rows) {
 
     // draw entire matrix
     drawGrid(ctx, nextGeneration, cols, rows);
-
-    // await delay(500);
 
     // call loop again
     requestAnimationFrame(() => {
@@ -150,6 +160,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
+    const offset = settings.resolution * 5;
+    settings.width = window.innerWidth - offset;
+    settings.height = window.innerHeight - offset;
+
+
     const cols = Math.floor(settings.width / settings.resolution);
     const rows = Math.floor(settings.height / settings.resolution);
 
@@ -158,6 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const firstGeneration = makeGrid(cols, rows);
 
-    loop(ctx, firstGeneration, cols, rows);
+    void loop(ctx, firstGeneration, cols, rows);
 
 });
